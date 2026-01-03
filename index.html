@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador Profesional de Carta de Smith</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1><i class="fas fa-chart-line"></i> ANALIZADOR PROFESIONAL DE CARTA DE SMITH</h1>
+            <p class="subtitle">Herramienta para análisis de líneas de transmisión</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Panel izquierdo: Carta de Smith -->
+            <div class="left-panel">
+                <div class="chart-container">
+                    <canvas id="smithChart" width="800" height="800"></canvas>
+                    <div class="chart-overlay">
+                        <div class="chart-title">CARTA DE SMITH - IMPEDANCIAS NORMALIZADAS</div>
+                        <div class="chart-legend">
+                            <span class="legend-item"><span class="color-box" style="background: #e74c3c"></span> ZL</span>
+                            <span class="legend-item"><span class="color-box" style="background: #27ae60"></span> Zin</span>
+                            <span class="legend-item"><span class="color-box" style="background: #3498db"></span> VSWR</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel derecho: Resultados y Leyenda -->
+            <div class="right-panel">
+                <!-- Panel de Resultados -->
+                <div class="results-panel">
+                    <h2><i class="fas fa-chart-bar"></i> RESULTADOS</h2>
+                    <div class="results-frame">
+                        <div id="resultsText" class="results-text">
+                            <div class="welcome-message">
+                                <h3>BIENVENIDO</h3>
+                                <p>Ingrese los parámetros y haga clic en calcular.</p>
+                                <div class="instruction">
+                                    <p><strong>Instrucciones:</strong></p>
+                                    <p>1. Complete los campos de entrada</p>
+                                    <p>2. Seleccione una opción de cálculo</p>
+                                    <p>3. Revise los resultados aquí</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel de Leyenda -->
+                <div class="legend-panel">
+                    <h2><i class="fas fa-info-circle"></i> LEYENDA</h2>
+                    <div class="legend-content">
+                        <div class="legend-section">
+                            <h4>COLORES</h4>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #e74c3c"></span>
+                                <span class="legend-text">ZL (Carga)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #27ae60"></span>
+                                <span class="legend-text">Zin (Entrada)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #3498db"></span>
+                                <span class="legend-text">Círculo VSWR</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #9b59b6"></span>
+                                <span class="legend-text">Rotación</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #f39c12"></span>
+                                <span class="legend-text">Círculo g=1</span>
+                            </div>
+                        </div>
+                        
+                        <div class="legend-section">
+                            <h4>SÍMBOLOS</h4>
+                            <div class="legend-item">
+                                <span class="legend-symbol">●</span>
+                                <span class="legend-text">Impedancia</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-symbol">■</span>
+                                <span class="legend-text">Admitancia</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-symbol">▲</span>
+                                <span class="legend-text">Punto entrada</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-symbol">★</span>
+                                <span class="legend-text">Punto acople</span>
+                            </div>
+                        </div>
+                        
+                        <div class="legend-section">
+                            <h4>PUNTOS ESPECIALES</h4>
+                            <div class="legend-item">
+                                <span class="legend-symbol">SC</span>
+                                <span class="legend-text">Cortocircuito</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-symbol">OC</span>
+                                <span class="legend-text">Circuito abierto</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Control Inferior -->
+        <div class="control-panel">
+            <h2><i class="fas fa-sliders-h"></i> PARÁMETROS DE ENTRADA</h2>
+            
+            <div class="input-grid">
+                <!-- Fila 1 -->
+                <div class="input-group">
+                    <label for="z0"><i class="fas fa-bolt"></i> Z₀ (Ω)</label>
+                    <input type="text" id="z0" value="50" placeholder="Impedancia característica">
+                    <div class="input-help">Impedancia de referencia</div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="zl"><i class="fas fa-weight-hanging"></i> Z_L (Ω)</label>
+                    <input type="text" id="zl" value="100+50j" placeholder="ej: 100+50j">
+                    <div class="input-help">Impedancia de carga</div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="freq"><i class="fas fa-wave-square"></i> Frec. (MHz)</label>
+                    <input type="text" id="freq" value="1000" placeholder="Frecuencia">
+                    <div class="input-help">En Megahertz</div>
+                </div>
+                
+                <!-- Fila 2 -->
+                <div class="input-group">
+                    <label for="length"><i class="fas fa-ruler"></i> Long. (m)</label>
+                    <input type="text" id="length" value="0.1" placeholder="Longitud">
+                    <div class="input-help">Longitud física</div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="vp"><i class="fas fa-tachometer-alt"></i> Vp</label>
+                    <input type="text" id="vp" value="1" placeholder="Factor velocidad">
+                    <div class="input-help">Factor de velocidad</div>
+                </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="button-grid">
+                <button id="calcZin" class="btn btn-success">
+                    <i class="fas fa-calculator"></i> CALCULAR Zin
+                </button>
+                
+                <button id="calcStub" class="btn btn-primary">
+                    <i class="fas fa-project-diagram"></i> DISEÑAR STUB
+                </button>
+                
+                <button id="calcQuick" class="btn btn-secondary">
+                    <i class="fas fa-bolt"></i> CÁLCULO RÁPIDO
+                </button>
+                
+                <button id="clear" class="btn btn-danger">
+                    <i class="fas fa-broom"></i> LIMPIAR
+                </button>
+                
+                <button id="showHistory" class="btn btn-purple">
+                    <i class="fas fa-history"></i> HISTORIAL
+                </button>
+                
+                <button id="export" class="btn btn-warning">
+                    <i class="fas fa-file-export"></i> EXPORTAR
+                </button>
+                
+                <button id="help" class="btn btn-info">
+                    <i class="fas fa-question-circle"></i> AYUDA
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p><i class="far fa-copyright"></i> 2026 Porragas me la pelas para las Líneas de Transmisión</p>
+            <p class="version">Versión 5.0 | JavaScript Carta de Smith Simulacion</p>
+        </footer>
+    </div>
+
+    <!-- Modal para Historial -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-history"></i> HISTORIAL DE CÁLCULOS</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="historyTable"></div>
+                <div class="modal-footer">
+                    <button id="exportHistory" class="btn btn-warning">
+                        <i class="fas fa-file-export"></i> Exportar CSV
+                    </button>
+                    <button id="clearHistory" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Limpiar Historial
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Ayuda -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content help-modal">
+            <div class="modal-header">
+                <h2><i class="fas fa-question-circle"></i> AYUDA - ANALIZADOR DE CARTA DE SMITH</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="help-content">
+                    <h3>FUNCIONALIDADES PRINCIPALES</h3>
+                    <div class="help-section">
+                        <h4><i class="fas fa-calculator"></i> CÁLCULO DE Zin</h4>
+                        <p>Calcula la impedancia de entrada de una línea de transmisión considerando:</p>
+                        <ul>
+                            <li>Impedancia de carga (Z_L)</li>
+                            <li>Longitud de la línea</li>
+                            <li>Frecuencia de operación</li>
+                            <li>Factor de velocidad</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4><i class="fas fa-project-diagram"></i> DISEÑO DE STUB</h4>
+                        <p>Diseña un stub sencillo en paralelo para acoplamiento de impedancias:</p>
+                        <ul>
+                            <li>Calcula distancia óptima</li>
+                            <li>Determina longitud del stub</li>
+                            <li>Muestra punto de acople</li>
+                        </ul>
+                    </div>
+                    
+                    <h3>INSTRUCCIONES DE USO</h3>
+                    <ol>
+                        <li>Ingrese todos los parámetros en los campos correspondientes</li>
+                        <li>Seleccione "CALCULAR Zin" o "DISEÑAR STUB" según su necesidad</li>
+                        <li>Revise los resultados en el panel derecho</li>
+                        <li>Use "LIMPIAR" para reiniciar la visualización</li>
+                        <li>Consulte el historial para ver cálculos anteriores</li>
+                    </ol>
+                    
+                    <h3>FORMATO DE ENTRADA</h3>
+                    <table class="help-table">
+                        <tr>
+                            <th>Campo</th>
+                            <th>Formato</th>
+                            <th>Ejemplo</th>
+                        </tr>
+                        <tr>
+                            <td>Z₀</td>
+                            <td>Número real</td>
+                            <td>50</td>
+                        </tr>
+                        <tr>
+                            <td>Z_L</td>
+                            <td>Complejo (a+bj)</td>
+                            <td>100+50j, 75-25j</td>
+                        </tr>
+                        <tr>
+                            <td>Frecuencia</td>
+                            <td>MHz</td>
+                            <td>1000 (para 1 GHz)</td>
+                        </tr>
+                        <tr>
+                            <td>Longitud</td>
+                            <td>Metros</td>
+                            <td>0.1, 0.05</td>
+                        </tr>
+                        <tr>
+                            <td>Vp</td>
+                            <td>Factor (0-1)</td>
+                            <td>1, 0.66, 0.8</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
