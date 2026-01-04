@@ -1013,3 +1013,236 @@ footer p {
 ::-webkit-scrollbar-thumb:hover {
     background: #2980b9;
 }
+
+/* ====================== CONTROLES DE ZOOM ====================== */
+.zoom-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.zoom-controls button {
+    background: white;
+    border: 1px solid #3498db;
+    border-radius: 4px;
+    width: 35px;
+    height: 35px;
+    cursor: pointer;
+    color: #2c3e50;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.zoom-controls button:hover {
+    background: #3498db;
+    color: white;
+    transform: scale(1.05);
+}
+
+.zoom-controls button:active {
+    transform: scale(0.95);
+}
+
+/* Cursor para indicar que se puede mover */
+#smithChart {
+    cursor: grab;
+}
+
+#smithChart:active {
+    cursor: grabbing;
+}
+
+/* Estado del zoom */
+.zoom-status {
+    position: absolute;
+    top: 80px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #2c3e50;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.zoom-status span {
+    font-weight: bold;
+    color: #3498db;
+}
+
+/* Animación para zoom */
+@keyframes zoomIn {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes zoomOut {
+    from {
+        transform: scale(1.1);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.zoom-in-animation {
+    animation: zoomIn 0.3s ease-out;
+}
+
+.zoom-out-animation {
+    animation: zoomOut 0.3s ease-out;
+}
+
+/* Botón de explicación */
+.btn-explanation {
+    background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
+    color: white;
+}
+
+.btn-explanation:hover {
+    background: linear-gradient(135deg, #7d3c98 0%, #8e44ad 100%);
+}
+
+/* Instrucciones de zoom */
+.zoom-instructions {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(52, 152, 219, 0.9);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-size: 12px;
+    max-width: 250px;
+    z-index: 100;
+}
+
+.zoom-instructions h4 {
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.zoom-instructions ul {
+    margin: 0;
+    padding-left: 15px;
+}
+
+.zoom-instructions li {
+    margin-bottom: 3px;
+}
+
+/* Mejoras para la cuadrícula con zoom */
+.chart-grid-zoomed {
+    stroke-width: 0.5;
+    stroke-opacity: 0.3;
+}
+
+/* Ajustes para pantallas pequeñas */
+@media (max-width: 768px) {
+    .zoom-controls {
+        top: 10px;
+        right: 10px;
+        padding: 8px;
+    }
+    
+    .zoom-controls button {
+        width: 30px;
+        height: 30px;
+        font-size: 12px;
+    }
+    
+    .zoom-instructions {
+        bottom: 10px;
+        left: 10px;
+        font-size: 11px;
+        max-width: 200px;
+    }
+}
+
+/* Mejoras para el trazado de líneas */
+.smith-line {
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.smith-dashed-line {
+    stroke-dasharray: 5, 5;
+}
+
+/* Mejoras para los puntos */
+.smith-point {
+    stroke-width: 2;
+    stroke: #000;
+    transition: r 0.2s;
+}
+
+.smith-point:hover {
+    r: 8;
+}
+
+/* Mejoras para el texto */
+.smith-label {
+    font-family: 'Arial', sans-serif;
+    font-size: 12px;
+    font-weight: bold;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Animaciones suaves */
+.smith-transition {
+    transition: all 0.3s ease;
+}
+
+/* Mejoras para la cuadrícula */
+.smith-grid-line {
+    stroke: #e0e0e0;
+    stroke-width: 0.5;
+    opacity: 0.5;
+}
+
+.smith-grid-line:hover {
+    stroke: #3498db;
+    opacity: 1;
+}
+
+/* Indicadores de medición */
+.measurement-line {
+    stroke: #e74c3c;
+    stroke-width: 1.5;
+    stroke-dasharray: 3, 3;
+}
+
+.measurement-label {
+    font-size: 10px;
+    fill: #e74c3c;
+    font-weight: bold;
+}
+
+/* Mejoras de rendimiento */
+.chart-optimized {
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}

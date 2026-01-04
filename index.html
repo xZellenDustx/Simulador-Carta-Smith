@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    
     <div class="container">
         <!-- Header -->
         <header>
@@ -21,11 +20,25 @@
             <div class="left-panel">
                 <div class="chart-container">
                     <canvas id="smithChart" width="800" height="800"></canvas>
+                    
+                    <!-- Controles de Zoom -->
+                    <div class="zoom-controls">
+                        <button id="zoomIn" title="Acercar (Ctrl + +)">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <button id="resetZoom" title="Restablecer vista (Ctrl + 0)">
+                            <i class="fas fa-compress"></i>
+                        </button>
+                        <button id="zoomOut" title="Alejar (Ctrl + -)">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                    </div>
+                    
                     <div class="chart-overlay">
                         <div class="chart-title">CARTA DE SMITH - IMPEDANCIAS NORMALIZADAS</div>
                         <div class="chart-legend">
-                            <span class="legend-item"><span class="color-box" style="background: #e74c3c"></span> ZL</span>
-                            <span class="legend-item"><span class="color-box" style="background: #27ae60"></span> Zin</span>
+                            <span class="legend-item"><span class="color-box" style="background: #e74c3c"></span> Z_L</span>
+                            <span class="legend-item"><span class="color-box" style="background: #27ae60"></span> Z_in</span>
                             <span class="legend-item"><span class="color-box" style="background: #3498db"></span> VSWR</span>
                         </div>
                     </div>
@@ -160,27 +173,31 @@
                 <button id="calcZin" class="btn btn-success">
                     <i class="fas fa-calculator"></i> CALCULAR Zin
                 </button>
-                
+    
                 <button id="calcStub" class="btn btn-primary">
                     <i class="fas fa-project-diagram"></i> DISEÑAR STUB
                 </button>
-                
+    
                 <button id="calcQuick" class="btn btn-secondary">
                     <i class="fas fa-bolt"></i> CÁLCULO RÁPIDO
                 </button>
-                
+    
+                <button id="explainStep" class="btn btn-explanation">
+                    <i class="fas fa-chalkboard-teacher"></i> EXPLICAR PUNTO
+                </button>
+    
                 <button id="clear" class="btn btn-danger">
                     <i class="fas fa-broom"></i> LIMPIAR
                 </button>
-                
+    
                 <button id="showHistory" class="btn btn-purple">
                     <i class="fas fa-history"></i> HISTORIAL
                 </button>
-                
+    
                 <button id="export" class="btn btn-warning">
                     <i class="fas fa-file-export"></i> EXPORTAR
                 </button>
-                
+    
                 <button id="help" class="btn btn-info">
                     <i class="fas fa-question-circle"></i> AYUDA
                 </button>
@@ -189,8 +206,8 @@
 
         <!-- Footer -->
         <footer>
-            <p><i class="far fa-copyright"></i> 2026 Porragas me la pelas para las Líneas de Transmisión</p>
-            <p class="version">Versión 5.0 | JavaScript Carta de Smith Simulacion</p>
+            <p><i class="far fa-copyright"></i> 2026 Porragas me pelas todititila la vrg hdsptm</p>
+            <p class="version">Versión 6.0 | JavaScript Carta de Smith Simulación</p>
         </footer>
     </div>
 

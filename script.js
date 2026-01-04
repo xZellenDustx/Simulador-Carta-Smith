@@ -16,10 +16,20 @@ class SmithChartProfessional {
             gridColor: '#e0e0e0'
         };
 
+        // Estado para zoom y paneo
+        this.viewState = {
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            isDragging: false,
+            lastX: 0,
+            lastY: 0
+        };
+
         // Estado
         this.history = [];
         this.currentAnnotations = [];
-        this.currentPlots = [];
+        this.constructionLines = null;
         this.canvas = document.getElementById('smithChart');
         this.ctx = this.canvas.getContext('2d');
         this.resultsText = document.getElementById('resultsText');
@@ -38,19 +48,26 @@ class SmithChartProfessional {
 
         // Inicializar
         this.init();
-        this.drawSmithChart();
+        this.setupZoomPan();
+        this.redrawChartWithAnnotations();
         this.addDetailedFeatures();
     }
 
     init() {
         // Event listeners para botones
-        document.getElementById('calcZin').addEventListener('click', () => this.onCalculateZin());
+        document.getElementById('calcZin').addEventListener('click', () => this.onCalculateZinDetailed());
         document.getElementById('calcStub').addEventListener('click', () => this.onDesignStub());
         document.getElementById('calcQuick').addEventListener('click', () => this.onCalculateQuick());
+        document.getElementById('explainStep').addEventListener('click', () => this.onExplainPoint());
         document.getElementById('clear').addEventListener('click', () => this.onClear());
         document.getElementById('showHistory').addEventListener('click', () => this.onShowHistory());
         document.getElementById('export').addEventListener('click', () => this.onExport());
         document.getElementById('help').addEventListener('click', () => this.onShowHelp());
+        
+        // Event listeners para controles de zoom
+        document.getElementById('zoomIn')?.addEventListener('click', () => this.zoomIn());
+        document.getElementById('zoomOut')?.addEventListener('click', () => this.zoomOut());
+        document.getElementById('resetZoom')?.addEventListener('click', () => this.resetZoom());
         
         // Event listeners para modales
         document.querySelectorAll('.close').forEach(closeBtn => {
@@ -75,12 +92,19 @@ class SmithChartProfessional {
         document.getElementById('clearHistory')?.addEventListener('click', () => this.clearHistory());
     }
 
+    drawSmithChart() {
+        this.redrawChartWithAnnotations();
+    }
+
     addDetailedFeatures() {
         // Sistema de coordenadas del mouse
         this.setupMouseTracking();
 
         // Panel de trazado
         this.createTracingPanel();
+
+        // Configurar Zoom
+        this.setupZoomPan();
     }
 
     // ====================== FUNCIONES MATEMÁTICAS ======================
@@ -161,14 +185,111 @@ class SmithChartProfessional {
         return this.complexMultiply(zNorm, { real: z0, imag: 0 });
     }
 
-    // ====================== DIBUJO DE CARTA DE SMITH ======================
-    drawSmithChart() {
+    // ====================== SISTEMA DE ZOOM Y PANEO ======================
+    setupZoomPan() {
+        const canvas = this.canvas;
+
+        // Zoom con la rueda del mouse
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomIntensity = 0.1;
+            const delta = e.deltaY > 0 ? -zoomIntensity : zoomIntensity;
+            const newScale = this.viewState.scale + delta;
+
+            // Limites de zoom (0.5x a 10x)
+            if (newScale >= 0.5 && newScale <= 10) {
+                // Zoom hacia la posición del mouse
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const wx = (mouseX - this.viewState.offsetX) / this.viewState.scale;
+                const wy = (mouseY - this.viewState.offsetY) / this.viewState.scale;
+
+                this.viewState.scale = newScale;
+                this.viewState.offsetX = mouseX - wx * newScale;
+                this.viewState.offsetY = mouseY - wy * newScale;
+
+                this.redrawChartWithAnnotations();
+            }
+        });
+
+        // Paneo (Arrastrar)
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) { // Solo botón izquierdo
+                this.viewState.isDragging = true;
+                this.viewState.lastX = e.clientX;
+                this.viewState.lastY = e.clientY;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (this.viewState.isDragging) {
+                const dx = e.clientX - this.viewState.lastX;
+                const dy = e.clientY - this.viewState.lastY;
+                this.viewState.offsetX += dx;
+                this.viewState.offsetY += dy;
+                this.viewState.lastX = e.clientX;
+                this.viewState.lastY = e.clientY;
+                
+                this.redrawChartWithAnnotations();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            this.viewState.isDragging = false;
+            canvas.style.cursor = 'default';
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            this.viewState.isDragging = false;
+            canvas.style.cursor = 'default';
+        });
+    }
+
+    zoomIn() {
+        const newScale = Math.min(this.viewState.scale * 1.2, 10);
+        this.viewState.scale = newScale;
+        this.redrawChartWithAnnotations();
+    }
+
+    zoomOut() {
+        const newScale = Math.max(this.viewState.scale / 1.2, 0.5);
+        this.viewState.scale = newScale;
+        this.redrawChartWithAnnotations();
+    }
+
+    resetZoom() {
+        this.viewState.scale = 1;
+        this.viewState.offsetX = 0;
+        this.viewState.offsetY = 0;
+        this.redrawChartWithAnnotations();
+    }
+
+    // ====================== FUNCIÓN PARA REDIBUJAR CON ANOTACIONES ======================
+    redrawChartWithAnnotations() {
+        this.ctx.save();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Aplicar transformación
+        this.ctx.translate(this.viewState.offsetX, this.viewState.offsetY);
+        this.ctx.scale(this.viewState.scale, this.viewState.scale);
+
+        // Dibujar carta base
+        this.drawBaseSmithChart();
+        
+        // Dibujar anotaciones existentes
+        this.drawAllAnnotations();
+        
+        this.ctx.restore();
+    }
+
+    // ====================== DIBUJO DE CARTA BASE (SIN TRANSFORMACIÓN) ======================
+    drawBaseSmithChart() {
         const ctx = this.ctx;
         const center = this.config.center;
         const radius = this.config.radius;
-
-        // Limpiar canvas
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Fondo
         ctx.fillStyle = this.config.backgroundColor;
@@ -176,7 +297,7 @@ class SmithChartProfessional {
 
         // Cuadrícula sutil
         ctx.strokeStyle = this.config.gridColor;
-        ctx.lineWidth = 0.5;
+        ctx.lineWidth = 0.5 / this.viewState.scale;
         for (let i = 0; i <= 10; i++) {
             ctx.beginPath();
             ctx.moveTo(0, center - radius + (i * radius * 0.2));
@@ -193,13 +314,13 @@ class SmithChartProfessional {
         ctx.beginPath();
         ctx.arc(center, center, radius, 0, Math.PI * 2);
         ctx.strokeStyle = this.config.circleColor;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 / this.viewState.scale;
         ctx.stroke();
 
         // Círculos de resistencia constante
         const resistances = [0.2, 0.5, 1, 2, 5];
         ctx.strokeStyle = this.config.resistanceColor;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 / this.viewState.scale;
         
         resistances.forEach(r => {
             const centerX = center + (r / (r + 1)) * radius;
@@ -214,6 +335,7 @@ class SmithChartProfessional {
         // Arcos de reactancia constante
         const reactances = [0.2, 0.5, 1, 2, 5];
         ctx.strokeStyle = this.config.reactanceColor;
+        ctx.lineWidth = 1 / this.viewState.scale;
         
         reactances.forEach(x => {
             [1, -1].forEach(sign => {
@@ -234,20 +356,38 @@ class SmithChartProfessional {
         ctx.moveTo(center - radius, center);
         ctx.lineTo(center + radius, center);
         ctx.strokeStyle = '#666666';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 / this.viewState.scale;
         ctx.stroke();
 
-        // Puntos especiales
-        this.drawPoint({ real: -1, imag: 0 }, 'SC', '#ffcccc', 'circle');
-        this.drawPoint({ real: 1, imag: 0 }, 'OC', '#ccffcc', 'circle');
+        // Puntos especiales (SC y OC)
+        ctx.save();
+        ctx.fillStyle = '#ffcccc';
+        ctx.beginPath();
+        ctx.arc(center - radius, center, 8 / this.viewState.scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#000000';
+        ctx.stroke();
+        
+        ctx.fillStyle = '#ccffcc';
+        ctx.beginPath();
+        ctx.arc(center + radius, center, 8 / this.viewState.scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // Etiquetas SC y OC
+        ctx.fillStyle = '#2c3e50';
+        ctx.font = `${12 / this.viewState.scale}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('SC', center - radius, center - 20 / this.viewState.scale);
+        ctx.fillText('OC', center + radius, center - 20 / this.viewState.scale);
 
         // Escala angular
         ctx.strokeStyle = '#666666';
-        ctx.lineWidth = 0.5;
-        ctx.font = '10px Arial';
+        ctx.lineWidth = 0.5 / this.viewState.scale;
+        ctx.font = `${10 / this.viewState.scale}px Arial`;
         ctx.fillStyle = '#2c3e50';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
 
         for (let angle = 0; angle < 360; angle += 30) {
             const rad = angle * Math.PI / 180;
@@ -274,16 +414,25 @@ class SmithChartProfessional {
         }
     }
 
-    gammaToCanvas(gamma) {
-        const center = this.config.center;
-        const radius = this.config.radius;
-        return {
-            x: center + gamma.real * radius,
-            y: center - gamma.imag * radius
-        };
+    // ====================== DIBUJAR TODAS LAS ANOTACIONES ======================
+    drawAllAnnotations() {
+        // Redibujar puntos de impedancia
+        this.currentAnnotations.forEach(annotation => {
+            if (annotation.type === 'point') {
+                this.drawPoint(annotation.gamma, annotation.label, annotation.color, annotation.marker, true);
+            } else if (annotation.type === 'vswr') {
+                this.drawVSWRCircle(annotation.gamma, annotation.color, true);
+            }
+        });
+
+        // Redibujar líneas de construcción si existen
+        if (this.constructionLines) {
+            this.drawConstructionLines(this.constructionLines.gamma, this.constructionLines.color);
+        }
     }
 
-    drawPoint(gamma, label, color, marker = 'circle') {
+    // ====================== DIBUJO DE PUNTO CON TRANSFORMACIÓN ======================
+    drawPoint(gamma, label, color, marker = 'circle', skipAnnotation = false) {
         const ctx = this.ctx;
         const coords = this.gammaToCanvas(gamma);
         
@@ -291,48 +440,54 @@ class SmithChartProfessional {
         
         ctx.fillStyle = color;
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 / this.viewState.scale;
+        
+        const pointSize = 10 / this.viewState.scale;
         
         switch(marker) {
             case 'circle':
                 ctx.beginPath();
-                ctx.arc(coords.x, coords.y, 10, 0, Math.PI * 2);
+                ctx.arc(coords.x, coords.y, pointSize, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
                 break;
             case 'square':
-                ctx.fillRect(coords.x - 8, coords.y - 8, 16, 16);
-                ctx.strokeRect(coords.x - 8, coords.y - 8, 16, 16);
+                const squareSize = 8 / this.viewState.scale;
+                ctx.fillRect(coords.x - squareSize, coords.y - squareSize, squareSize * 2, squareSize * 2);
+                ctx.strokeRect(coords.x - squareSize, coords.y - squareSize, squareSize * 2, squareSize * 2);
                 break;
             case 'triangle':
                 ctx.beginPath();
-                ctx.moveTo(coords.x, coords.y - 10);
-                ctx.lineTo(coords.x - 9, coords.y + 7);
-                ctx.lineTo(coords.x + 9, coords.y + 7);
+                ctx.moveTo(coords.x, coords.y - pointSize);
+                ctx.lineTo(coords.x - pointSize * 0.9, coords.y + pointSize * 0.7);
+                ctx.lineTo(coords.x + pointSize * 0.9, coords.y + pointSize * 0.7);
                 ctx.closePath();
                 ctx.fill();
                 ctx.stroke();
                 break;
             case 'star':
-                this.drawStar(ctx, coords.x, coords.y, 5, 10, 5);
+                this.drawStar(ctx, coords.x, coords.y, 5, 10 / this.viewState.scale, 5 / this.viewState.scale);
                 break;
         }
         
+        // Anillo decorativo
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.5 / this.viewState.scale;
         ctx.beginPath();
-        ctx.arc(coords.x, coords.y, 15, 0, Math.PI * 2);
+        ctx.arc(coords.x, coords.y, 15 / this.viewState.scale, 0, Math.PI * 2);
         ctx.stroke();
         
+        // Línea al centro
         ctx.beginPath();
         ctx.moveTo(this.config.center, this.config.center);
         ctx.lineTo(coords.x, coords.y);
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 / this.viewState.scale;
         ctx.setLineDash([3, 3]);
         ctx.stroke();
         
-        const textOffset = 20;
+        // Etiqueta del punto
+        const textOffset = 20 / this.viewState.scale;
         const angle = Math.atan2(this.config.center - coords.y, coords.x - this.config.center);
         let ha, va, offsetX, offsetY;
         
@@ -361,26 +516,29 @@ class SmithChartProfessional {
         const magnitude = this.complexMagnitude(gamma);
         const angleDeg = this.complexAngle(gamma) * 180 / Math.PI;
         
-        ctx.fillStyle = '#000000';
-        ctx.font = '12px Arial';
+        // Etiqueta principal
+        ctx.fillStyle = color;
+        ctx.font = `${12 / this.viewState.scale}px Arial`;
         ctx.textAlign = ha;
         ctx.textBaseline = va;
-        ctx.fillStyle = color;
         ctx.fillText(label, coords.x + offsetX, coords.y + offsetY);
         
-        ctx.font = '10px Arial';
+        // Información adicional
+        ctx.font = `${10 / this.viewState.scale}px Arial`;
         ctx.fillStyle = '#666666';
-        ctx.fillText(`|Γ|=${magnitude.toFixed(2)}`, coords.x + offsetX, coords.y + offsetY + 15);
+        ctx.fillText(`|Γ|=${magnitude.toFixed(2)}`, coords.x + offsetX, coords.y + offsetY + 15 / this.viewState.scale);
         
         ctx.restore();
         
-        this.currentAnnotations.push({
-            type: 'point',
-            gamma,
-            label,
-            color,
-            marker
-        });
+        if (!skipAnnotation) {
+            this.currentAnnotations.push({
+                type: 'point',
+                gamma,
+                label,
+                color,
+                marker
+            });
+        }
     }
 
     drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
@@ -410,30 +568,236 @@ class SmithChartProfessional {
         ctx.stroke();
     }
 
-    drawSWRConstantCircle(gamma) {
+    // ====================== LÍNEAS DE CONSTRUCCIÓN ======================
+    drawConstructionLines(gamma, color = '#e67e22') {
         const ctx = this.ctx;
         const center = this.config.center;
         const radius = this.config.radius;
-        const gammaRadius = this.complexMagnitude(gamma);
+        
+        // Convertir gamma a impedancia normalizada
+        const z = this.gammaToZ(gamma, 1); // Z normalizada (Z0=1)
+        const r = z.real;
+        const x = z.imag;
         
         ctx.save();
-        ctx.strokeStyle = '#2ecc71';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
+        
+        // Círculo de resistencia constante
+        if (r >= 0) {
+            const rCenterX = center + (r / (r + 1)) * radius;
+            const rRadius = (1 / (r + 1)) * radius;
+            
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3 / this.viewState.scale;
+            ctx.setLineDash([5, 5]);
+            ctx.arc(rCenterX, center, rRadius, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Etiqueta para r
+            this.drawFloatingLabel(rCenterX + rRadius, center, `r = ${r.toFixed(2)}`, color);
+        }
+        
+        // Arco de reactancia constante
+        if (Math.abs(x) > 0.01) {
+            const xRadius = (1 / Math.abs(x)) * radius;
+            const xCenterY = center - (1 / x) * radius;
+            
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3 / this.viewState.scale;
+            ctx.setLineDash([5, 5]);
+            
+            // Dibujar solo la parte del círculo dentro de la carta
+            const startAngle = Math.asin((center - xCenterY) / xRadius);
+            const endAngle = Math.PI - startAngle;
+            
+            ctx.arc(center + radius, xCenterY, xRadius, startAngle, endAngle);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Etiqueta para x
+            this.drawFloatingLabel(center + radius, xCenterY + (x > 0 ? -xRadius : xRadius), `x = ${x.toFixed(2)}j`, color);
+        }
+        
+        // Línea del ángulo de fase
+        const angle = Math.atan2(gamma.imag, gamma.real);
+        const lineLen = radius * 1.1;
+        
         ctx.beginPath();
-        ctx.arc(center, center, gammaRadius * radius, 0, Math.PI * 2);
+        ctx.strokeStyle = '#34495e';
+        ctx.lineWidth = 2 / this.viewState.scale;
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(center, center);
+        ctx.lineTo(center + Math.cos(angle) * lineLen, center - Math.sin(angle) * lineLen);
         ctx.stroke();
         ctx.setLineDash([]);
         
-        const vswr = (1 + gammaRadius) / (1 - gammaRadius);
-        ctx.fillStyle = '#2ecc71';
-        ctx.font = '12px Arial';
-        ctx.fillText(`VSWR: ${vswr.toFixed(2)}`, center + 10, center - (gammaRadius * radius) - 10);
+        // Etiqueta del ángulo
+        const deg = (angle * 180 / Math.PI).toFixed(1);
+        const labelX = center + Math.cos(angle) * lineLen * 0.8;
+        const labelY = center - Math.sin(angle) * lineLen * 0.8;
+        this.drawFloatingLabel(labelX, labelY, `∠${deg}°`, '#2c3e50');
         
         ctx.restore();
     }
 
-    drawVSWRCircle(gamma, color) {
+    drawFloatingLabel(x, y, text, bgColor) {
+        const ctx = this.ctx;
+        ctx.save();
+        
+        // Invertir escala para que el texto mantenga tamaño constante
+        ctx.translate(x, y);
+        ctx.scale(1 / this.viewState.scale, 1 / this.viewState.scale);
+        
+        const fontSize = 12;
+        ctx.font = `bold ${fontSize}px Arial`;
+        const textWidth = ctx.measureText(text).width;
+        const padding = 8;
+        const rectWidth = textWidth + padding * 2;
+        const rectHeight = fontSize + padding * 2;
+        
+        // Fondo del texto
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.strokeStyle = bgColor;
+        ctx.lineWidth = 2;
+        
+        // Dibujar rectángulo redondeado
+        const radius = 5;
+        ctx.beginPath();
+        ctx.moveTo(radius, 0);
+        ctx.lineTo(rectWidth - radius, 0);
+        ctx.quadraticCurveTo(rectWidth, 0, rectWidth, radius);
+        ctx.lineTo(rectWidth, rectHeight - radius);
+        ctx.quadraticCurveTo(rectWidth, rectHeight, rectWidth - radius, rectHeight);
+        ctx.lineTo(radius, rectHeight);
+        ctx.quadraticCurveTo(0, rectHeight, 0, rectHeight - radius);
+        ctx.lineTo(0, radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.closePath();
+        
+        ctx.fill();
+        ctx.stroke();
+        
+        // Texto
+        ctx.fillStyle = bgColor;
+        ctx.fillText(text, padding, fontSize + padding / 2);
+        
+        ctx.restore();
+    }
+
+    // ====================== MANEJADOR PARA EXPLICAR PUNTO ======================
+    onExplainPoint() {
+        try {
+            const z0 = parseFloat(document.getElementById('z0').value);
+            const zl = this.parseComplex(document.getElementById('zl').value);
+            
+            // Calcular Gamma
+            const gamma = this.zToGamma(zl, z0);
+            
+            // Limpiar anotaciones anteriores
+            this.currentAnnotations = [];
+            
+            // Agregar anotaciones directamente
+            this.currentAnnotations.push({
+                type: 'point',
+                gamma: gamma,
+                label: 'ZL',
+                color: '#e74c3c',
+                marker: 'circle'
+            });
+            
+            this.currentAnnotations.push({
+                type: 'vswr',
+                gamma: gamma,
+                color: '#2ecc71'
+            });
+            
+            // Guardar líneas de construcción
+            this.constructionLines = {
+                gamma: gamma,
+                color: '#e67e22'
+            };
+            
+            // Redibujar todo
+            this.redrawChartWithAnnotations();
+            
+            // Mostrar explicación en el panel de resultados
+            const zNorm = this.complexDivide(zl, {real: z0, imag: 0});
+            this.resultsText.innerHTML = `
+                <div class="results-title">ANÁLISIS GRÁFICO DETALLADO</div>
+                <div class="results-divider">══════════════════════════════════════════════</div>
+                
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <div class="step-title">CÍRCULO DE RESISTENCIA CONSTANTE</div>
+                        <div class="step-description">
+                            <p>El punto cae sobre el círculo <strong>r = ${zNorm.real.toFixed(2)}</strong> (línea naranja punteada).</p>
+                            <p>Todos los puntos en este círculo tienen la misma parte resistiva normalizada.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <div class="step-title">ARCO DE REACTANCIA CONSTANTE</div>
+                        <div class="step-description">
+                            <p>El punto cae sobre el arco <strong>x = ${zNorm.imag.toFixed(2)}j</strong> (línea naranja punteada).</p>
+                            <p>• Si es positivo (arriba del eje): Reactancia inductiva</p>
+                            <p>• Si es negativo (abajo del eje): Reactancia capacitiva</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <div class="step-title">CÍRCULO DE ROE CONSTANTE</div>
+                        <div class="step-description">
+                            <p>El círculo verde punteado representa la <strong>relación de onda estacionaria constante</strong>.</p>
+                            <p>Si nos movemos por una línea sin pérdidas, navegaremos sobre este círculo.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <div class="step-title">ÁNGULO DE FASE DEL COEFICIENTE Γ</div>
+                        <div class="step-description">
+                            <p>La línea gris punteada muestra el ángulo del coeficiente de reflexión.</p>
+                            <p>Ángulo actual: <strong>${(this.complexAngle(gamma) * 180 / Math.PI).toFixed(1)}°</strong></p>
+                            <p>Esta dirección indica el sentido de rotación hacia el generador.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="instruction" style="margin-top: 20px;">
+                    <p><strong>Uso del zoom y paneo:</strong></p>
+                    <p>• Use la rueda del mouse para hacer zoom</p>
+                    <p>• Arrastre con clic izquierdo para mover la vista</p>
+                    <p>• Use los botones de zoom en la esquina superior derecha</p>
+                </div>
+            `;
+            
+        } catch (error) {
+            this.showError(`Error en análisis gráfico: ${error.message}`);
+        }
+    }
+
+    gammaToCanvas(gamma) {
+        const center = this.config.center;
+        const radius = this.config.radius;
+        return {
+            x: center + gamma.real * radius,
+            y: center - gamma.imag * radius
+        };
+    }
+
+    // ====================== CÍRCULO VSWR ======================
+    drawVSWRCircle(gamma, color, skipAnnotation = false) {
         const ctx = this.ctx;
         const center = this.config.center;
         const radius = this.config.radius;
@@ -441,7 +805,7 @@ class SmithChartProfessional {
         
         ctx.save();
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2.5 / this.viewState.scale;
         ctx.globalAlpha = 0.3;
         ctx.beginPath();
         ctx.arc(center, center, gammaRadius * radius, 0, Math.PI * 2);
@@ -460,17 +824,19 @@ class SmithChartProfessional {
         
         ctx.save();
         ctx.fillStyle = color;
-        ctx.font = 'bold 12px Arial';
+        ctx.font = `bold ${12 / this.viewState.scale}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(`VSWR=${vswr.toFixed(2)}`, labelX, labelY);
         ctx.restore();
         
-        this.currentAnnotations.push({
-            type: 'vswr',
-            gamma,
-            color
-        });
+        if (!skipAnnotation) {
+            this.currentAnnotations.push({
+                type: 'vswr',
+                gamma,
+                color
+            });
+        }
         
         return vswr;
     }
@@ -598,11 +964,14 @@ class SmithChartProfessional {
             </div>
         `;
         
-        document.querySelector('.chart-container').appendChild(panel);
-        
-        document.getElementById('startAnimation').addEventListener('click', () => this.startAnimation());
-        document.getElementById('pauseAnimation').addEventListener('click', () => this.pauseAnimation());
-        document.getElementById('resetAnimation').addEventListener('click', () => this.resetAnimation());
+        const chartContainer = document.querySelector('.chart-container');
+        if (chartContainer) {
+            chartContainer.appendChild(panel);
+            
+            document.getElementById('startAnimation').addEventListener('click', () => this.startAnimation());
+            document.getElementById('pauseAnimation').addEventListener('click', () => this.pauseAnimation());
+            document.getElementById('resetAnimation').addEventListener('click', () => this.resetAnimation());
+        }
     }
 
     // ====================== SISTEMA DE TRAZADO PASO A PASO ======================
@@ -692,7 +1061,7 @@ class SmithChartProfessional {
         
         ctx.save();
         ctx.strokeStyle = '#9b59b6';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 3 / this.viewState.scale;
         ctx.lineCap = 'round';
         ctx.globalAlpha = 0.8;
         
@@ -711,8 +1080,8 @@ class SmithChartProfessional {
         ctx.fillStyle = '#9b59b6';
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.lineTo(-6, -12);
-        ctx.lineTo(6, -12);
+        ctx.lineTo(-6 / this.viewState.scale, -12 / this.viewState.scale);
+        ctx.lineTo(6 / this.viewState.scale, -12 / this.viewState.scale);
         ctx.closePath();
         ctx.fill();
         
@@ -859,10 +1228,6 @@ class SmithChartProfessional {
     }
 
     // ====================== MANEJADORES DE EVENTOS ======================
-    onCalculateZin() {
-        this.onCalculateZinDetailed();
-    }
-
     onCalculateZinDetailed() {
         try {
             const z0 = parseFloat(document.getElementById('z0').value);
@@ -882,15 +1247,23 @@ class SmithChartProfessional {
             
             const results = this.calculateZinDetailed(zl, z0, length_m, vp, freq_hz);
             
+            // Limpiar anotaciones anteriores
             this.currentAnnotations = [];
-            this.drawSmithChart();
+            this.constructionLines = null;
             
+            // Redibujar todo
+            this.redrawChartWithAnnotations();
+            
+            // Dibujar trazo completo
             this.drawCompleteTrace(zl, z0, results);
             
+            // Configurar sistema de trazado
             this.setupTracingSteps(results.Gamma_l, results.Gamma_in, 50);
             
+            // Mostrar resultados detallados
             this.showDetailedResults(results, { z0, zl, freq_hz, length_m, vp });
             
+            // Agregar al historial
             this.addToHistory('Z_in', results, { z0, zl, freq_hz, length_m, vp });
             
         } catch (error) {
@@ -914,7 +1287,7 @@ class SmithChartProfessional {
             ctx.save();
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(coords.x, coords.y, 4, 0, Math.PI * 2);
+            ctx.arc(coords.x, coords.y, 4 / this.viewState.scale, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         });
@@ -945,8 +1318,8 @@ class SmithChartProfessional {
         ctx.fillStyle = '#9b59b6';
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.lineTo(-10, -5);
-        ctx.lineTo(-10, 5);
+        ctx.lineTo(-10 / this.viewState.scale, -5 / this.viewState.scale);
+        ctx.lineTo(-10 / this.viewState.scale, 5 / this.viewState.scale);
         ctx.closePath();
         ctx.fill();
         
@@ -969,7 +1342,7 @@ class SmithChartProfessional {
         
         ctx.save();
         ctx.fillStyle = '#9b59b6';
-        ctx.font = 'bold 14px Arial';
+        ctx.font = `bold ${14 / this.viewState.scale}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(`${angleDeg.toFixed(1)}°`, labelX, labelY);
@@ -1112,7 +1485,7 @@ class SmithChartProfessional {
             const zl = this.parseComplex(document.getElementById('zl').value);
             
             this.currentAnnotations = [];
-            this.drawSmithChart();
+            this.redrawChartWithAnnotations();
             
             const gamma = this.zToGamma(zl, z0);
             this.drawPoint(gamma, 'Z_L', '#e74c3c', 'circle');
@@ -1176,6 +1549,7 @@ class SmithChartProfessional {
     }
 
     calculateStub(zl, z0, freq_hz, vp = 1) {
+        // Calcular admitancia de carga
         const yl = this.complexDivide({ real: 1, imag: 0 }, zl);
         const y0 = this.complexDivide({ real: 1, imag: 0 }, { real: z0, imag: 0 });
         const yl_norm = this.complexDivide(yl, y0);
@@ -1183,17 +1557,20 @@ class SmithChartProfessional {
         const g = yl_norm.real;
         const b = yl_norm.imag;
         
+        // Calcular distancia al stub
         const d1 = (Math.atan2(1 - b, g) - Math.atan2(b, g - 1)) / (4 * Math.PI);
         const d2 = (Math.atan2(1 - b, g) - Math.atan2(b, g - 1) + 2 * Math.PI) / (4 * Math.PI);
         const d_lam = Math.min(d1 % 0.5, d2 % 0.5);
         
+        // Calcular admitancia en el punto de conexión
         const y1_norm = {
-            real: 1 + (b - g * Math.tan(4 * Math.PI * d_lam)),
-            imag: 0
+            real: 1,
+            imag: b - g * Math.tan(4 * Math.PI * d_lam)
         };
         
         const b_stub = -y1_norm.imag;
         
+        // Calcular longitud del stub
         let l_stub_lam;
         if (b_stub >= 0) {
             l_stub_lam = Math.atan(b_stub) / (2 * Math.PI);
@@ -1230,13 +1607,13 @@ class SmithChartProfessional {
             const results = this.calculateStub(zl, z0, freq_hz, vp);
             
             this.currentAnnotations = [];
-            this.drawSmithChart();
+            this.redrawChartWithAnnotations();
             
             const gamma_zl = this.zToGamma(zl, z0);
             this.drawPoint(gamma_zl, 'Z_L', '#e74c3c', 'circle');
             
             const yl = this.complexDivide({ real: 1, imag: 0 }, zl);
-            const gamma_yl = this.zToGamma(this.complexDivide({ real: 1, imag: 0 }, yl), z0);
+            const gamma_yl = this.zToGamma(yl, z0);
             this.drawPoint(gamma_yl, 'Y_L', '#3498db', 'square');
             
             this.drawG1Circle();
@@ -1275,7 +1652,7 @@ class SmithChartProfessional {
         
         ctx.save();
         ctx.strokeStyle = this.config.g1CircleColor;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 / this.viewState.scale;
         ctx.setLineDash([5, 5]);
         ctx.globalAlpha = 0.5;
         
@@ -1287,9 +1664,9 @@ class SmithChartProfessional {
         
         ctx.save();
         ctx.fillStyle = this.config.g1CircleColor;
-        ctx.font = 'bold 12px Arial';
+        ctx.font = `bold ${12 / this.viewState.scale}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText('Círculo g=1', center - radius/2, center + radius/2 + 20);
+        ctx.fillText('Círculo g=1', center - radius/2, center + radius/2 + 20 / this.viewState.scale);
         ctx.restore();
     }
 
@@ -1330,7 +1707,8 @@ class SmithChartProfessional {
 
     onClear() {
         this.currentAnnotations = [];
-        this.drawSmithChart();
+        this.constructionLines = null;
+        this.resetZoom();
         this.resultsText.innerHTML = `
             <div class="welcome-message">
                 <h3>GRÁFICO LIMPIADO</h3>
@@ -1340,6 +1718,7 @@ class SmithChartProfessional {
                     <p>1. Complete los campos de entrada</p>
                     <p>2. Seleccione una opción de cálculo</p>
                     <p>3. Revise los resultados aquí</p>
+                    <p>4. Use zoom y paneo para explorar detalles</p>
                 </div>
             </div>
         `;
@@ -1432,7 +1811,33 @@ class SmithChartProfessional {
     }
 }
 
-// Inicializar la aplicación cuando se cargue la página
+// Agregar atajos de teclado para zoom
+document.addEventListener('keydown', (e) => {
+    const app = window.smithChartApp || (() => {
+        // Si no existe la referencia global, intenta obtenerla
+        const apps = document.querySelectorAll('[data-smith-chart]');
+        return apps.length > 0 ? apps[0].smithChart : null;
+    })();
+    
+    if (!app) return;
+    
+    if ((e.ctrlKey || e.metaKey) && e.key === '=') {
+        e.preventDefault();
+        app.zoomIn();
+    } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        app.zoomOut();
+    } else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        app.resetZoom();
+    }
+});
+
+// Hacer la aplicación globalmente accesible (útil para debugging)
+window.smithChartApp = null;
+
+// Actualizar la inicialización
 document.addEventListener('DOMContentLoaded', () => {
     const app = new SmithChartProfessional();
+    window.smithChartApp = app; // Hacerla accesible globalmente
 });
