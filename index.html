@@ -49,7 +49,7 @@
             <div class="right-panel">
                 <!-- Panel de Resultados -->
                 <div class="results-panel">
-                    <h2><i class="fas fa-chart-bar"></i> RESULTADOS</h2>
+                    <h2><i class="fas fa-chart-bar"style="margin: 20px 25px; padding-top: 20px; border-top: 1px solid #ddd;"></i> RESULTADOS</h2>
                     <div class="results-frame">
                         <div id="resultsText" class="results-text">
                             <div class="welcome-message">
@@ -165,6 +165,42 @@
                     <label for="vp"><i class="fas fa-tachometer-alt"></i> Vp</label>
                     <input type="text" id="vp" value="1" placeholder="Factor velocidad">
                     <div class="input-help">Factor de velocidad</div>
+                </div>
+            </div>
+
+            <!-- Herramientas Avanzadas -->
+                <div class="advanced-inputs" style="margin: 20px 25px; padding-top: 20px; border-top: 1px solid #ddd;">
+                    <h3 style="font-size: 14px; color: #2c3e50; margin-bottom: 15px;">
+                <i class="fas fa-microscope"></i> HERRAMIENTAS AVANZADAS (Problemas 2 y 5)
+                    </h3>
+    
+                <div class="input-grid" style="background: #eef2f7;">
+                    <div class="input-group">
+                        <label for="roe_input">VSWR (ROE)</label>
+                        <input type="text" id="roe_input" placeholder="ej: 2.5">
+                    </div>
+                    <div class="input-group">
+                        <label for="dmax_input">Pos. 1er Vmax (cm)</label>
+                        <input type="text" id="dmax_input" placeholder="ej: 15">
+                    </div>
+        
+                    <div class="input-group">
+                        <label for="gamma_mag">|Γ| (Magnitud)</label>
+                        <input type="text" id="gamma_mag" placeholder="ej: 0.6">
+                    </div>
+                    <div class="input-group">
+                        <label for="gamma_ang">∠Γ (Grados)</label>
+                        <input type="text" id="gamma_ang" placeholder="ej: 80">
+                    </div>
+                </div>
+    
+                <div class="button-grid" style="margin-top: 15px; padding: 0;">
+                    <button id="solveProb2" class="btn" style="background: #8e44ad; color: white;">
+                        <i class="fas fa-search-location"></i> RESOLVER PROB. 2 (Vmax → ZL)
+                    </button>
+                    <button id="solveProb5" class="btn" style="background: #d35400; color: white;">
+                        <i class="fas fa-link"></i> RESOLVER PROB. 5 (Acople Serie)
+                    </button>
                 </div>
             </div>
 

@@ -63,6 +63,8 @@ class SmithChartProfessional {
         document.getElementById('showHistory').addEventListener('click', () => this.onShowHistory());
         document.getElementById('export').addEventListener('click', () => this.onExport());
         document.getElementById('help').addEventListener('click', () => this.onShowHelp());
+        document.getElementById('solveProb2')?.addEventListener('click', () => this.onSolveSlottedLine());
+        document.getElementById('solveProb5')?.addEventListener('click', () => this.onSolveSeriesMatching());
         
         // Event listeners para controles de zoom
         document.getElementById('zoomIn')?.addEventListener('click', () => this.zoomIn());
@@ -1668,6 +1670,163 @@ class SmithChartProfessional {
         ctx.textAlign = 'center';
         ctx.fillText('Círculo g=1', center - radius/2, center + radius/2 + 20 / this.viewState.scale);
         ctx.restore();
+    }
+
+    // === LÓGICA PARA PROBLEMA 2: LÍNEA RANURADA ===
+onSolveSlottedLine() {
+    try {
+        const z0 = parseFloat(document.getElementById('z0').value);
+        const roe = parseFloat(document.getElementById('roe_input').value);
+        const d_max_cm = parseFloat(document.getElementById('dmax_input').value);
+        const freq_hz = parseFloat(document.getElementById('freq').value) * 1e6;
+        const vp = parseFloat(document.getElementById('vp').value);
+
+        if (!z0 || !roe || isNaN(d_max_cm) || !freq_hz) throw new Error("Faltan datos (Z0, Frec, ROE o Posición Vmax)");
+
+        // 1. Calcular Lambda
+        const lambda_m = (vp * 2.9979e8) / freq_hz;
+        const lambda_cm = lambda_m * 100;
+
+        // 2. En el Vmax, la impedancia es Real Pura = Z0 * ROE
+        // Gamma en el Vmax es Real Positivo
+        const gamma_mag = (roe - 1) / (roe + 1);
+        const gamma_vmax = { real: gamma_mag, imag: 0 }; // Ángulo 0°
+
+        // 3. Rotar "Hacia la Carga" (Anti-horario / Sumar ángulo)
+        // Distancia d_max es desde la carga hasta el primer máximo.
+        // Para ir del máximo a la carga, retrocedemos d_max.
+        // Fórmula: Gamma_L = Gamma_max * e^(+j 2 beta d)  <-- Signo + por ir a la carga
+        
+        const beta = (2 * Math.PI) / lambda_cm;
+        const rotation_rad = 2 * beta * d_max_cm; 
+        
+        // Calcular Gamma Load
+        const gamma_L = {
+            real: gamma_mag * Math.cos(rotation_rad),
+            imag: gamma_mag * Math.sin(rotation_rad)
+        };
+
+        const ZL = this.gammaToZ(gamma_L, z0);
+
+        // --- VISUALIZACIÓN ---
+        this.currentAnnotations = [];
+        this.redrawChartWithAnnotations();
+
+        // 1. Dibujar Vmax
+        this.drawPoint(gamma_vmax, 'V_max', '#27ae60', 'triangle');
+        this.drawVSWRCircle(gamma_vmax, '#2ecc71');
+
+        // 2. Dibujar ZL calculada
+        this.drawPoint(gamma_L, 'Z_L (Calc)', '#e74c3c', 'circle');
+
+        // 3. Dibujar Arco de rotación (Hacia la carga = Antihorario)
+        // Nota: Mi función drawRotationSegment dibuja la línea corta, aquí simulamos el arco
+        // Usaremos el sistema de trazado para mostrar el camino
+        this.setupTracingSteps(gamma_vmax, gamma_L, 40);
+        
+        // Reporte
+        this.showResults('SOLUCIÓN PROBLEMA 2 (Línea Ranurada)', {
+            'ROE': roe,
+            'Pos. Vmax': `${d_max_cm} cm`,
+            'λ': `${lambda_cm.toFixed(2)} cm`
+        }, {
+            'Z_max (en Vmax)': `${(z0 * roe).toFixed(2)} Ω`,
+            'Rotación': `${(rotation_rad * 180 / Math.PI).toFixed(1)}° (Hacia Carga)`,
+            'Z_L (Carga)': `${ZL.real.toFixed(2)} ${ZL.imag >= 0 ? '+' : ''}${ZL.imag.toFixed(2)}j Ω`
+        });
+
+    } catch (e) {
+        this.showError(e.message);
+    }
+}
+
+    // === LÓGICA PARA PROBLEMA 5: ACOPLAMIENTO SERIE ===
+onSolveSeriesMatching() {
+    try {
+        const z0 = parseFloat(document.getElementById('z0').value);
+        let gamma_mag = parseFloat(document.getElementById('gamma_mag').value);
+        let gamma_ang_deg = parseFloat(document.getElementById('gamma_ang').value);
+
+        // Si no metieron gamma manual, usar ZL del input principal
+        let gamma_start;
+        if (!isNaN(gamma_mag) && !isNaN(gamma_ang_deg)) {
+            const rad = gamma_ang_deg * Math.PI / 180;
+            gamma_start = {
+                real: gamma_mag * Math.cos(rad),
+                imag: gamma_mag * Math.sin(rad)
+            };
+        } else {
+            const zl = this.parseComplex(document.getElementById('zl').value);
+            gamma_start = this.zToGamma(zl, z0);
+            gamma_mag = this.complexMagnitude(gamma_start);
+        }
+
+        // --- ALGORITMO DE INTERSECCIÓN (Círculo ROE vs Círculo r=1) ---
+        // Círculo r=1 en plano Gamma: Centro (0.5, 0), Radio 0.5
+        // Círculo ROE en plano Gamma: Centro (0, 0), Radio gamma_mag
+        
+        // Ecuación intersección: x^2 + y^2 = gamma_mag^2  Y  (x-0.5)^2 + y^2 = 0.5^2
+        // Restando ecuaciones: x^2 - (x-0.5)^2 = gamma_mag^2 - 0.25
+        // x^2 - (x^2 - x + 0.25) = gamma_mag^2 - 0.25
+        // x - 0.25 = gamma_mag^2 - 0.25  =>  x = gamma_mag^2
+        
+        const x_int = gamma_mag * gamma_mag;
+        
+        // Ahora hallamos y: y^2 = gamma_mag^2 - x^2
+        const y_sq = (gamma_mag * gamma_mag) - (x_int * x_int);
+        
+        if (y_sq < 0) throw new Error("No hay solución posible (ROE < 1?)");
+        
+        const y_int = Math.sqrt(y_sq); 
+        
+        // Tenemos dos soluciones de intersección: (x_int, y_int) y (x_int, -y_int)
+        // Solución 1 (Superior, inductiva)
+        const gamma_match_1 = { real: x_int, imag: y_int };
+        
+        // Calcular Z en el punto de match (Debe tener parte real = Z0)
+        const z_match = this.gammaToZ(gamma_match_1, z0);
+        
+        // La reactancia serie necesaria es cancelar la parte imag de z_match
+        const x_series_needed = -z_match.imag;
+        
+        // Calcular rotación necesaria (Hacia generador)
+        const ang_start = Math.atan2(gamma_start.imag, gamma_start.real);
+        const ang_match = Math.atan2(gamma_match_1.imag, gamma_match_1.real);
+        
+        let rotation_rad = ang_start - ang_match; // Horario
+        if (rotation_rad < 0) rotation_rad += 2*Math.PI;
+
+        // --- VISUALIZACIÓN ---
+        this.currentAnnotations = [];
+        this.redrawChartWithAnnotations();
+
+        // 1. Punto Inicio
+        this.drawPoint(gamma_start, 'Inicio', '#e74c3c', 'circle');
+        this.drawVSWRCircle(gamma_start, '#3498db');
+
+        // 2. Resaltar círculo r=1 (Objetivo)
+        this.drawConstructionLines({real:0, imag:0}, '#000000'); // Dibuja r=1 implícito o usar drawGCircle custom
+        
+        // 3. Punto de intersección
+        this.drawPoint(gamma_match_1, 'Cruce r=1', '#f39c12', 'star');
+
+        // 4. Arco de movimiento
+        this.setupTracingSteps(gamma_start, gamma_match_1, 30);
+
+        this.showResults('SOLUCIÓN PROBLEMA 5 (Brazo Serie)', {
+            '|Γ| Inicial': gamma_mag.toFixed(3),
+            'Z₀': z0
+        }, {
+            'Punto de Cruce (Z)': `${z_match.real.toFixed(1)} + ${z_match.imag.toFixed(1)}j Ω`,
+            'Reactancia Serie Necesaria': `${x_series_needed.toFixed(2)}j Ω`,
+            'Tipo de Elemento': x_series_needed > 0 ? 'Inductor (Serie)' : 'Capacitor (Serie)',
+            'Rotación Eléctrica': `${(rotation_rad * 180 / (4*Math.PI)).toFixed(2)} λ`,
+            'Rotación Ángulo': `${(rotation_rad * 180 / Math.PI).toFixed(1)}°`
+        });
+
+    } catch (e) {
+        this.showError(e.message);
+    }
     }
 
     showResults(title, params, results) {
